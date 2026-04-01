@@ -47,7 +47,7 @@
                         </div>
                     </div>
 
-                    <button type="button" id="add-item" class="btn btn-secondary mb-4">
+                    <button type="button" id="add-item" class="btn btn-primary mb-4">
                         + Thêm sản phẩm
                     </button>
 
