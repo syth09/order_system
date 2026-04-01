@@ -9,17 +9,16 @@ class Order extends Model
 {
     use HasFactory;
 
-    protected $fillable = ['customer_name', 'status', 'total_amount'];
+    protected $fillable = ['customer_name', 'total_amount', 'status'];
 
     public function items()
     {
         return $this->hasMany(OrderItem::class);
     }
 
-    // Tính tổng tiền (nâng cao)
+    // Tính tổng tiền tự động khi cần
     public function calculateTotal()
     {
-        $this->total_amount = $this->items()->sum('subtotal');
-        $this->save();
+        return $this->items->sum('subtotal');
     }
 }

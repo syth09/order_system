@@ -1,95 +1,62 @@
 @extends('layouts.app')
 
 @section('content')
-    <div class="container mt-4">
+    <div class="container">
 
-        <!-- Header -->
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <div>
-                <h2 class="fw-bold text-white bg-primary px-4 py-3 rounded"
-                    style="background: linear-gradient(135deg, #0d6efd, #0b5ed7);">
-                    Quản Lý Đơn Hàng
-                </h2>
-            </div>
+        <!-- Tiêu đề -->
+        <div class="bg-primary text-white p-4 rounded-3 shadow-sm mb-4">
+            <h1 class="mb-0 fs-3 fw-bold">Hệ Thống Đơn Hàng</h1>
         </div>
 
-        <!-- Toolbar -->
-        <div class="row mb-3 align-items-center">
-            <div class="col-md-6">
-                <a href="{{ route('orders.create') }}" class="btn btn-primary btn-lg shadow-sm">
-                    <i class="bi bi-plus-lg"></i> Thêm đơn hàng mới
-                </a>
-            </div>
+        <a href="{{ route('orders.create') }}" class="btn btn-success mb-3">
+            + Tạo đơn hàng mới
+        </a>
 
-            <div class="col-md-6">
-                <div class="input-group">
-                    <input type="text" id="searchInput" class="form-control" placeholder="Tìm theo tên khách hàng...">
-                    <button class="btn btn-primary" type="button" onclick="searchTable()">
-                        <i class="bi bi-search"></i> Tìm
-                    </button>
-                </div>
-            </div>
-        </div>
-
-        <!-- Bảng dữ liệu -->
-        <div class="card shadow">
+        <div class="card shadow-sm">
             <div class="card-body p-0">
-                <table class="table table-hover align-middle mb-0" id="ordersTable">
-                    <thead class="table-light">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light border-bottom">
                         <tr>
-                            <th style="width: 80px;">ID</th>
-                            <th>Họ tên khách hàng</th>
+                            <th>ID</th>
+                            <th>Khách hàng</th>
+                            <th>Tổng tiền</th>
                             <th>Trạng thái</th>
-                            <th class="text-end">Tổng tiền</th>
                             <th>Ngày tạo</th>
-                            <th class="text-center" style="width: 220px;">Hành động</th>
+                            <th class="text-center">Hành động</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse($orders as $order)
                             <tr>
-                                <td class="fw-bold">{{ $order->id }}</td>
+                                <td><strong>#{{ str_pad($order->id, 5, '0', STR_PAD_LEFT) }}</strong></td>
                                 <td>{{ $order->customer_name }}</td>
+                                <td class="fw-bold text-end">{{ number_format($order->total_amount) }} ₫</td>
                                 <td>
-                                    @php
-                                        $statusClass = match ($order->status) {
-                                            'pending' => 'bg-warning text-dark',
-                                            'processing' => 'bg-info text-white',
-                                            'completed' => 'bg-success text-white',
-                                            default => 'bg-secondary text-white',
-                                        };
-                                    @endphp
-                                    <span class="badge {{ $statusClass }} px-3 py-2 fs-6">
-                                        {{ ucfirst($order->status) }}
-                                    </span>
-                                </td>
-                                <td class="text-end fw-bold">
-                                    {{ number_format($order->total_amount) }} ₫
+                                    @if ($order->status == 'pending')
+                                        <span class="badge bg-warning">Pending</span>
+                                    @elseif($order->status == 'processing')
+                                        <span class="badge bg-info">Processing</span>
+                                    @elseif($order->status == 'completed')
+                                        <span class="badge bg-success">Completed</span>
+                                    @endif
                                 </td>
                                 <td>{{ $order->created_at->format('d/m/Y H:i') }}</td>
                                 <td class="text-center">
                                     <a href="{{ route('orders.show', $order) }}"
-                                        class="btn btn-info btn-sm text-white px-3">
-                                        Chi tiết
-                                    </a>
-
-                                    <button onclick="updateStatus({{ $order->id }})" class="btn btn-warning btn-sm px-3">
-                                        Sửa
-                                    </button>
-
-                                    <form action="{{ route('orders.destroy', $order) }}" method="POST" class="d-inline"
-                                        onsubmit="return confirm('Bạn có chắc muốn xóa đơn hàng này?')">
+                                        class="btn btn-info btn-sm rounded-pill">Chi tiết</a>
+                                    <form action="{{ route('orders.destroy', $order) }}" method="POST" class="d-inline">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn btn-danger btn-sm px-3">Xóa</button>
+                                        <button type="submit" class="btn btn-danger btn-sm rounded-pill"
+                                            onclick="return confirm('Xác nhận xóa đơn hàng này?')">
+                                            Xóa
+                                        </button>
                                     </form>
                                 </td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="6" class="text-center py-5 text-muted">
-                                    Chưa có đơn hàng nào. Hãy tạo đơn hàng mới!
-                                </td>
+                                <td colspan="6" class="text-center py-4">Chưa có đơn hàng nào.</td>
                             </tr>
                         @endforelse
                     </tbody>
@@ -97,58 +64,9 @@
             </div>
         </div>
 
-        <!-- Phân trang -->
-        <div class="d-flex justify-content-end mt-3">
+        <div class="mt-3">
             {{ $orders->links() }}
         </div>
 
     </div>
-
-    <!-- Modal cập nhật trạng thái nhanh -->
-    <div class="modal fade" id="statusModal" tabindex="-1">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Cập nhật trạng thái đơn hàng</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <form id="statusForm" method="POST">
-                    @csrf
-                    @method('PATCH')
-                    <div class="modal-body">
-                        <input type="hidden" name="order_id" id="modal_order_id">
-                        <select name="status" id="modal_status" class="form-select form-select-lg">
-                            <option value="pending">Pending</option>
-                            <option value="processing">Processing</option>
-                            <option value="completed">Completed</option>
-                        </select>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
-                        <button type="submit" class="btn btn-primary">Cập nhật</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
 @endsection
-
-@push('scripts')
-    <script>
-        function searchTable() {
-            let input = document.getElementById('searchInput').value.toLowerCase();
-            let rows = document.querySelectorAll('#ordersTable tbody tr');
-
-            rows.forEach(row => {
-                let name = row.cells[1].textContent.toLowerCase();
-                row.style.display = name.includes(input) ? '' : 'none';
-            });
-        }
-
-        function updateStatus(orderId) {
-            document.getElementById('modal_order_id').value = orderId;
-            document.getElementById('statusForm').action = `/orders/${orderId}/status`;
-            new bootstrap.Modal(document.getElementById('statusModal')).show();
-        }
-    </script>
-@endpush

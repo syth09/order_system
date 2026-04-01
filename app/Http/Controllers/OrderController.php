@@ -4,17 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Http\Requests\StoreOrderRequest;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 
 class OrderController extends Controller
 {
     public function index()
     {
-        $orders = Order::with('items')
-            ->latest()
-            ->paginate(10);
-
+        $orders = Order::with('items')->latest()->paginate(10);
         return view('orders.index', compact('orders'));
     }
 
@@ -23,50 +20,34 @@ class OrderController extends Controller
         return view('orders.create');
     }
 
-    public function store(Request $request)
+    public function store(StoreOrderRequest $request)
     {
-        $validated = $request->validate([
-            'customer_name' => 'required|string|max:255',
-            'products' => 'required|array|min:1',
-            'products.*.name' => 'required|string|max:255',
-            'products.*.quantity' => 'required|integer|min:1',
-            'products.*.price' => 'required|numeric|min:0',
-        ], [
-            'products.min' => 'Đơn hàng phải có ít nhất 1 sản phẩm.'
+        $order = Order::create([
+            'customer_name' => $request->customer_name,
+            'total_amount'  => 0,           // sẽ tính sau
+            'status'        => 'pending'
         ]);
 
-        DB::beginTransaction();
-        try {
-            $order = Order::create([
-                'customer_name' => $validated['customer_name'],
-                'status' => 'pending',
-                'total_amount' => 0,
+        $totalAmount = 0;
+
+        foreach ($request->items as $item) {
+            $subtotal = $item['price'] * $item['quantity'];
+            $totalAmount += $subtotal;
+
+            OrderItem::create([
+                'order_id'     => $order->id,
+                'product_name' => $item['product_name'],
+                'price'        => $item['price'],
+                'quantity'     => $item['quantity'],
+                'subtotal'     => $subtotal,
             ]);
-
-            $total = 0;
-            foreach ($validated['products'] as $item) {
-                $subtotal = $item['quantity'] * $item['price'];
-                OrderItem::create([
-                    'order_id' => $order->id,
-                    'product_name' => $item['name'],
-                    'quantity' => $item['quantity'],
-                    'price' => $item['price'],
-                    'subtotal' => $subtotal,
-                ]);
-                $total += $subtotal;
-            }
-
-            $order->total_amount = $total;
-            $order->save();
-
-            DB::commit();
-
-            return redirect()->route('orders.index')
-                ->with('success', 'Tạo đơn hàng thành công!');
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return back()->with('error', 'Có lỗi xảy ra: ' . $e->getMessage());
         }
+
+        // Cập nhật tổng tiền
+        $order->update(['total_amount' => $totalAmount]);
+
+        return redirect()->route('orders.index')
+            ->with('success', 'Tạo đơn hàng thành công!');
     }
 
     public function show(Order $order)
@@ -75,22 +56,22 @@ class OrderController extends Controller
         return view('orders.show', compact('order'));
     }
 
-    public function updateStatus(Order $order, Request $request)
+    public function updateStatus(Request $request, Order $order)
     {
-        $validated = $request->validate([
-            'status' => 'required|in:pending,processing,completed',
+        $request->validate([
+            'status' => 'required|in:pending,processing,completed'
         ]);
 
-        $order->update(['status' => $validated['status']]);
+        $order->update(['status' => $request->status]);
 
         return redirect()->route('orders.show', $order)
-            ->with('success', 'Cập nhật trạng thái thành công!');
+            ->with('success', 'Cập nhật trạng thái đơn hàng thành công!');
     }
 
     public function destroy(Order $order)
     {
         $order->delete();
         return redirect()->route('orders.index')
-            ->with('success', 'Đơn hàng đã được xóa thành công!');
+            ->with('success', 'Xóa đơn hàng thành công!');
     }
 }
